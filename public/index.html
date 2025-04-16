@@ -26,20 +26,29 @@
     const conditionText = document.getElementById('condition');
     const ctx = canvas.getContext('2d');
 
-    // Tải mô hình face-api.js từ GitHub
+    // Khởi động camera ngay lập tức
+    startVideo();
+
+    // Tải mô hình face-api.js (chạy song song, không phụ thuộc vào camera)
     Promise.all([
-  faceapi.nets.tinyFaceDetector.loadFromUri('/weights'),
-  faceapi.nets.faceExpressionNet.loadFromUri('/weights')
-]).then(startVideo).catch(err => {
-  console.error('Lỗi tải mô hình:', err);
-  conditionText.textContent = 'Lỗi tải mô hình nhận diện khuôn mặt';
-});
+      faceapi.nets.tinyFaceDetector.loadFromUri('https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights'),
+      faceapi.nets.faceExpressionNet.loadFromUri('https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights')
+    ]).then(() => {
+      console.log('Mô hình face-api.js đã tải thành công');
+    }).catch(err => {
+      console.error('Lỗi tải mô hình:', err);
+      conditionText.textContent = 'Lỗi tải mô hình nhận diện khuôn mặt';
+    });
 
     // Khởi động camera
     function startVideo() {
       navigator.mediaDevices.getUserMedia({ video: true })
-        .then(stream => video.srcObject = stream)
+        .then(stream => {
+          video.srcObject = stream;
+          console.log('Camera đã được khởi động');
+        })
         .catch(err => {
+          console.error('Lỗi truy cập camera:', err);
           conditionText.textContent = 'Lỗi truy cập camera: ' + err.message;
         });
     }
