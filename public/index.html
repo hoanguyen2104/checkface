@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chụp Ảnh Từ Camera</title>
+  <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; }
+    #video, #canvas { display: block; margin: 10px auto; }
+    #condition { font-size: 18px; margin: 10px; }
+    button { padding: 10px 20px; font-size: 16px; }
+  </style>
+</head>
+<body>
+  <h1>Chụp Ảnh Từ Camera</h1>
+  <video id="video" width="640" height="480" autoplay></video>
+  <canvas id="canvas" style="display: none;"></canvas>
+  <button onclick="capturePhoto()">Chụp Ảnh</button>
+  <p id="condition">Tình trạng: Đang chờ...</p>
+
+  <script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const conditionText = document.getElementById('condition');
+    const ctx = canvas.getContext('2d');
+
+    // Tải mô hình face-api.js
+    Promise.all([
+      faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights'),
+      faceapi.nets.faceExpressionNet.loadFromUri('https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights')
+    ]).then(startVideo);
+
+    // Khởi động camera
+    function startVideo() {
+      navigator.mediaDevices.getUserMedia({ video: true })
+        .then(stream => video.srcObject = stream)
+        .catch(err => {
+          conditionText.textContent = 'Lỗi truy cập camera: ' + err.message;
+        });
+    }
+
+    // Chụp ảnh và phân tích
+    async function capturePhoto() {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      // Nhận diện khuôn mặt và biểu cảm
+      const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
+        .withFaceExpressions();
+
+      let condition = 'Không phát hiện khuôn mặt';
+      if (detections.length > 0) {
+        const expressions = detections[0].expressions;
+        const maxExpression = Object.keys(expressions).reduce((a, b) =>
+          expressions[a] > expressions[b] ? a : b
+        );
+        condition = `Phát hiện: ${maxExpression} (${(expressions[maxExpression] * 100).toFixed(2)}%)`;
+      }
+      conditionText.textContent = `Tình trạng: ${condition}`;
+
+      // Gửi ảnh lên server
+      const dataUrl = canvas.toDataURL('image/jpeg');
+      fetch('https://your-render-app.onrender.com/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: dataUrl, condition })
+      })
+        .then(response => response.json())
+        .then(data => alert(data.message))
+        .catch(err => alert('Tải ảnh lên thất bại: ' + err.message));
+    }
+  </script>
+</body>
+</html>

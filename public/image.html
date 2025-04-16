@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Danh Sách Ảnh Đã Tải Lên</title>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; }
+    .gallery { display: flex; flex-wrap: wrap; justify-content: center; }
+    .gallery img { width: 200px; height: auto; margin: 10px; }
+    .gallery p { width: 200px; margin: 0 10px 20px; }
+  </style>
+</head>
+<body>
+  <h1>Danh Sách Ảnh Đã Tải Lên</h1>
+  <div class="gallery" id="gallery"></div>
+
+  <script>
+    fetch('https://your-render-app.onrender.com/images')
+      .then(response => response.json())
+      .then(images => {
+        const gallery = document.getElementById('gallery');
+        images.forEach(image => {
+          const img = document.createElement('img');
+          img.src = `https://your-render-app.onrender.com/uploads/${image.filename}`;
+          gallery.appendChild(img);
+          const p = document.createElement('p');
+          p.textContent = `Tình trạng: ${image.condition}`;
+          gallery.appendChild(p);
+        });
+      })
+      .catch(err => alert('Tải danh sách ảnh thất bại: ' + err.message));
+  </script>
+</body>
+</html>
