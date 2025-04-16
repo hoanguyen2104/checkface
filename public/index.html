@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Chụp Ảnh Từ Camera</title>
+  <!-- Sử dụng face-api.js -->
   <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
   <style>
     body { font-family: Arial, sans-serif; text-align: center; }
@@ -25,11 +26,14 @@
     const conditionText = document.getElementById('condition');
     const ctx = canvas.getContext('2d');
 
-    // Tải mô hình face-api.js
+    // Tải mô hình face-api.js từ GitHub
     Promise.all([
-      faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights'),
-      faceapi.nets.faceExpressionNet.loadFromUri('https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights')
-    ]).then(startVideo);
+  faceapi.nets.tinyFaceDetector.loadFromUri('/weights'),
+  faceapi.nets.faceExpressionNet.loadFromUri('/weights')
+]).then(startVideo).catch(err => {
+  console.error('Lỗi tải mô hình:', err);
+  conditionText.textContent = 'Lỗi tải mô hình nhận diện khuôn mặt';
+});
 
     // Khởi động camera
     function startVideo() {
@@ -62,7 +66,7 @@
 
       // Gửi ảnh lên server
       const dataUrl = canvas.toDataURL('image/jpeg');
-      fetch('https://your-render-app.onrender.com/upload', {
+      fetch('https://checkface-0jlo.onrender.com/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ image: dataUrl, condition })

@@ -16,13 +16,13 @@
   <div class="gallery" id="gallery"></div>
 
   <script>
-    fetch('https://your-render-app.onrender.com/images')
+    fetch('https://checkface-0jlo.onrender.com/images')
       .then(response => response.json())
       .then(images => {
         const gallery = document.getElementById('gallery');
         images.forEach(image => {
           const img = document.createElement('img');
-          img.src = `https://your-render-app.onrender.com/uploads/${image.filename}`;
+          img.src = `https://checkface-0jlo.onrender.com/uploads/${image.filename}`;
           gallery.appendChild(img);
           const p = document.createElement('p');
           p.textContent = `Tình trạng: ${image.condition}`;
