@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Thể hiện cảm xúc</title>
-  <!-- Sử dụng face-api.js -->
-  <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+  <!-- Sử dụng MorphCast Emotion AI -->
+  <script src="https://cdn.morphcast.com/mpc/mpc-sdk.min.js"></script>
   <!-- Google Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
@@ -231,6 +231,7 @@
 
     let score = 0;
     let currentEmotion = '';
+    let morphCastInstance = null;
 
     // Danh sách cảm xúc thông dụng, dễ làm
     const emotions = [
@@ -248,6 +249,8 @@
         .then(stream => {
           video.srcObject = stream;
           console.log('Camera đã được khởi động');
+          // Khởi động MorphCast sau khi camera sẵn sàng
+          initializeMorphCast(stream);
         })
         .catch(err => {
           console.error('Lỗi truy cập camera:', err);
@@ -255,16 +258,23 @@
         });
     }
 
-    // Tải mô hình face-api.js
-    Promise.all([
-      faceapi.nets.tinyFaceDetector.loadFromUri('https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights'),
-      faceapi.nets.faceExpressionNet.loadFromUri('https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights')
-    ]).then(() => {
-      console.log('Mô hình face-api.js đã tải thành công');
-    }).catch(err => {
-      console.error('Lỗi tải mô hình:', err);
-      alert('Lỗi tải mô hình nhận diện khuôn mặt');
-    });
+    // Khởi động MorphCast Emotion AI
+    async function initializeMorphCast(stream) {
+      try {
+        morphCastInstance = await MorphCast.create({
+          videoElement: video,
+          licenseKey: 'YOUR_LICENSE_KEY_HERE', // Thay bằng license key của bạn
+          modules: ['emotion'], // Chỉ sử dụng module emotion
+          privacyMode: true // Đảm bảo quyền riêng tư
+        });
+
+        console.log('MorphCast đã khởi động thành công');
+        morphCastInstance.start();
+      } catch (err) {
+        console.error('Lỗi khởi động MorphCast:', err);
+        alert('Lỗi khởi động công cụ nhận diện cảm xúc');
+      }
+    }
 
     // Bắt đầu trò chơi
     startButton.addEventListener('click', () => {
@@ -287,39 +297,42 @@
 
     // Kiểm tra cảm xúc
     async function checkEmotion() {
+      if (!morphCastInstance) return;
+
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       const ctx = canvas.getContext('2d');
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
-        .withFaceExpressions();
-
       let detectedEmotion = 'Không phát hiện khuôn mặt';
       let mappedEmotion = '';
 
-      if (detections.length > 0) {
-        const expressions = detections[0].expressions;
-        const maxExpression = Object.keys(expressions).reduce((a, b) =>
-          expressions[a] > expressions[b] ? a : b
-        );
-        detectedEmotion = `Phát hiện: ${maxExpression} (${(expressions[maxExpression] * 100).toFixed(2)}%)`;
-        mappedEmotion = maxExpression;
+      try {
+        const result = await morphCastInstance.getAnalysis();
+        if (result && result.emotion && result.emotion.length > 0) {
+          const primaryEmotion = result.emotion[0];
+          const emotionLabel = primaryEmotion.label.toLowerCase();
+          const confidence = primaryEmotion.confidence;
+          detectedEmotion = `Phát hiện: ${emotionLabel} (${(confidence * 100).toFixed(2)}%)`;
+          mappedEmotion = emotionLabel;
 
-        // So sánh cảm xúc
-        const currentEmotionObj = emotions.find(emotion => emotion.name === currentEmotion);
-        if (mappedEmotion === currentEmotionObj.mapped) {
-          score += 10;
-          document.body.className = 'correct';
-          correctSound.play();
-          scoreText.textContent = `Điểm: ${score}`;
-          nextRequest(); // Chuyển sang yêu cầu mới
-        } else {
-          score = Math.max(0, score - 5); // Điểm không âm
-          document.body.className = 'wrong';
-          wrongSound.play();
-          scoreText.textContent = `Điểm: ${score}`;
+          // So sánh cảm xúc
+          const currentEmotionObj = emotions.find(emotion => emotion.name === currentEmotion);
+          if (mappedEmotion === currentEmotionObj.mapped) {
+            score += 10;
+            document.body.className = 'correct';
+            correctSound.play();
+            scoreText.textContent = `Điểm: ${score}`;
+            nextRequest(); // Chuyển sang yêu cầu mới
+          } else {
+            score = Math.max(0, score - 5); // Điểm không âm
+            document.body.className = 'wrong';
+            wrongSound.play();
+            scoreText.textContent = `Điểm: ${score}`;
+          }
         }
+      } catch (err) {
+        console.error('Lỗi phân tích cảm xúc:', err);
       }
 
       // Cập nhật thanh trạng thái
@@ -335,6 +348,13 @@
         .then(response => response.json())
         .catch(err => console.error('Tải ảnh lên thất bại:', err));
     }
+
+    // Dừng MorphCast khi đóng trang
+    window.addEventListener('beforeunload', () => {
+      if (morphCastInstance) {
+        morphCastInstance.stop();
+      }
+    });
   </script>
 </body>
 </html>
