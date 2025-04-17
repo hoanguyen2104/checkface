@@ -23,7 +23,7 @@ async function ensureUploadDir() {
 }
 ensureUploadDir();
 
-// API tải ảnh lên
+// Upload endpoint
 app.post('/upload', async (req, res) => {
   try {
     const { image, condition } = req.body;
@@ -51,7 +51,7 @@ app.post('/upload', async (req, res) => {
   }
 });
 
-// API lấy danh sách ảnh
+// Get images endpoint
 app.get('/images', async (req, res) => {
   try {
     const metadataPath = path.join(UPLOAD_DIR, 'metadata.json');
