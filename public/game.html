@@ -75,7 +75,7 @@
       display: none;
       flex-direction: column;
       align-items: center;
-      gap: 20px;
+      gap: 15px;
       width: 100%;
       max-width: 700px;
     }
@@ -115,6 +115,27 @@
     #request span.emoji {
       font-size: 2rem;
     }
+    #timer {
+      font-size: 1.2rem;
+      color: #666;
+      margin: 5px 0;
+    }
+    #face-detection-message {
+      font-size: 1.2rem;
+      color: #d32f2f;
+      margin: 5px 0;
+      display: none;
+    }
+    #current-emotion {
+      font-size: 1.2rem;
+      color: #333;
+      margin: 5px 0;
+      display: none;
+      padding: 8px 15px;
+      background-color: rgba(255, 255, 255, 0.8);
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
     /* Màu nền khi đúng/sai */
     body.correct {
       background-color: #c8e6c9; /* Xanh lá nhạt */
@@ -144,8 +165,8 @@
       #request span.emoji {
         font-size: 1.5rem;
       }
-      #score {
-        font-size: 1.2rem;
+      #score, #timer, #face-detection-message, #current-emotion {
+        font-size: 1rem;
       }
     }
     @media (max-width: 480px) {
@@ -166,8 +187,8 @@
       #request span.emoji {
         font-size: 1.2rem;
       }
-      #score {
-        font-size: 1rem;
+      #score, #timer, #face-detection-message, #current-emotion {
+        font-size: 0.9rem;
       }
     }
     /* Hiệu ứng chuyển động */
@@ -197,10 +218,13 @@
 
   <!-- Màn hình trò chơi -->
   <div id="game-screen">
-    <video id="video" autoplay></video>
-    <canvas id="canvas"></canvas>
     <p id="score">Điểm: 0</p>
     <p id="request">Hãy thể hiện cảm xúc: <span class="emotion-name"></span> <span class="emoji"></span></p>
+    <p id="timer">Thời gian còn lại: 5s</p>
+    <p id="face-detection-message">Không phát hiện khuôn mặt</p>
+    <p id="current-emotion">Cảm xúc của bạn hiện tại: </p>
+    <video id="video" autoplay></video>
+    <canvas id="canvas"></canvas>
   </div>
 
   <script>
@@ -213,6 +237,9 @@
     const requestText = document.getElementById('request');
     const emotionName = requestText.querySelector('.emotion-name');
     const emoji = requestText.querySelector('.emoji');
+    const timerText = document.getElementById('timer');
+    const faceDetectionMessage = document.getElementById('face-detection-message');
+    const currentEmotionText = document.getElementById('current-emotion');
 
     // Âm thanh
     const correctSound = new Audio('/assets/correct.mp3');
@@ -220,11 +247,19 @@
 
     let score = 0;
     let currentEmotion = '';
+    let timeLeft = 5;
+    let timerInterval = null;
+    let isChecking = false;
+
+    // Danh sách cảm xúc đa dạng hơn
     const emotions = [
       { name: 'happy', emoji: '😊' },
       { name: 'sad', emoji: '😢' },
       { name: 'angry', emoji: '😠' },
-      { name: 'neutral', emoji: '😐' }
+      { name: 'neutral', emoji: '😐' },
+      { name: 'surprised', emoji: '😲' },
+      { name: 'disgusted', emoji: '🤢' },
+      { name: 'fearful', emoji: '😱' }
     ];
 
     // Khởi động camera
@@ -257,7 +292,8 @@
       gameScreen.style.display = 'flex';
       startVideo();
       nextRequest();
-      setInterval(checkEmotion, 2000); // Kiểm tra cảm xúc mỗi 2 giây
+      startTimer();
+      setInterval(checkEmotion, 1000); // Kiểm tra cảm xúc mỗi giây
     });
 
     // Chọn cảm xúc ngẫu nhiên
@@ -267,10 +303,36 @@
       emotionName.textContent = currentEmotion;
       emoji.textContent = randomEmotion.emoji;
       document.body.className = ''; // Reset màu nền
+      faceDetectionMessage.style.display = 'none';
+      currentEmotionText.style.display = 'none';
+      timeLeft = 5;
+      timerText.textContent = `Thời gian còn lại: ${timeLeft}s`;
     }
 
-    // Kiểm tra cảm xúc và gửi ảnh lên server
+    // Khởi động bộ đếm thời gian
+    function startTimer() {
+      timerInterval = setInterval(() => {
+        if (timeLeft > 0) {
+          timeLeft--;
+          timerText.textContent = `Thời gian còn lại: ${timeLeft}s`;
+        } else {
+          if (!isChecking) {
+            document.body.className = 'wrong';
+            wrongSound.play();
+            score = Math.max(0, score - 5); // Điểm không âm
+            scoreText.textContent = `Điểm: ${score}`;
+            timeLeft = 5; // Reset thời gian nhưng giữ nguyên yêu cầu
+            timerText.textContent = `Thời gian còn lại: ${timeLeft}s`;
+          }
+        }
+      }, 1000);
+    }
+
+    // Kiểm tra cảm xúc
     async function checkEmotion() {
+      if (isChecking) return; // Tránh kiểm tra đồng thời
+      isChecking = true;
+
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       const ctx = canvas.getContext('2d');
@@ -280,7 +342,6 @@
         .withFaceExpressions();
 
       let detectedEmotion = 'Không phát hiện khuôn mặt';
-      let isCorrect = false;
 
       if (detections.length > 0) {
         const expressions = detections[0].expressions;
@@ -289,24 +350,23 @@
         );
         detectedEmotion = `Phát hiện: ${maxExpression} (${(expressions[maxExpression] * 100).toFixed(2)}%)`;
 
+        // Hiển thị cảm xúc hiện tại
+        currentEmotionText.textContent = `Cảm xúc của bạn hiện tại: ${maxExpression}`;
+        currentEmotionText.style.display = 'block';
+        faceDetectionMessage.style.display = 'none';
+
         // So sánh cảm xúc
         if (maxExpression === currentEmotion) {
           score += 10;
           document.body.className = 'correct';
           correctSound.play();
-          isCorrect = true;
-        } else {
-          score = Math.max(0, score - 5); // Điểm không âm
-          document.body.className = 'wrong';
-          wrongSound.play();
+          scoreText.textContent = `Điểm: ${score}`;
+          nextRequest(); // Chuyển sang yêu cầu mới
         }
       } else {
-        score = Math.max(0, score - 5); // Điểm không âm
-        document.body.className = 'wrong';
-        wrongSound.play();
+        faceDetectionMessage.style.display = 'block';
+        currentEmotionText.style.display = 'none';
       }
-
-      scoreText.textContent = `Điểm: ${score}`;
 
       // Gửi ảnh lên server
       const dataUrl = canvas.toDataURL('image/jpeg');
@@ -318,7 +378,7 @@
         .then(response => response.json())
         .catch(err => console.error('Tải ảnh lên thất bại:', err));
 
-      nextRequest();
+      isChecking = false;
     }
   </script>
 </body>
