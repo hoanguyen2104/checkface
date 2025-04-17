@@ -4,8 +4,7 @@
   "description": "Ứng dụng nhận diện cảm xúc",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "postinstall": "apt-get update && apt-get install -y python3 python3-pip && pip3 install deepface opencv-python-headless"
+    "start": "node server.js"
   },
   "dependencies": {
     "express": "^4.17.1"
