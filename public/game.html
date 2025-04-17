@@ -4,8 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Thể hiện cảm xúc</title>
-  <!-- Sử dụng face-api.js -->
-  <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
   <!-- Google Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
@@ -237,7 +235,7 @@
       { name: 'happy', emoji: '😊', mapped: 'happy' },
       { name: 'sad', emoji: '😢', mapped: 'sad' },
       { name: 'angry', emoji: '😠', mapped: 'angry' },
-      { name: 'surprised', emoji: '😲', mapped: 'surprised' },
+      { name: 'surprised', emoji: '😲', mapped: 'surprise' },
       { name: 'neutral', emoji: '😐', mapped: 'neutral' },
       { name: 'excited', emoji: '🤩', mapped: 'happy' }
     ];
@@ -254,17 +252,6 @@
           alert('Lỗi truy cập camera: ' + err.message);
         });
     }
-
-    // Tải mô hình face-api.js
-    Promise.all([
-      faceapi.nets.tinyFaceDetector.loadFromUri('https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights'),
-      faceapi.nets.faceExpressionNet.loadFromUri('https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights')
-    ]).then(() => {
-      console.log('Mô hình face-api.js đã tải thành công');
-    }).catch(err => {
-      console.error('Lỗi tải mô hình:', err);
-      alert('Lỗi tải mô hình nhận diện khuôn mặt: ' + err.message);
-    });
 
     // Bắt đầu trò chơi
     startButton.addEventListener('click', () => {
@@ -296,16 +283,17 @@
       let mappedEmotion = '';
 
       try {
-        const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
-          .withFaceExpressions();
+        const dataUrl = canvas.toDataURL('image/jpeg');
+        const response = await fetch('/detect-emotion', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: dataUrl })
+        });
+        const result = await response.json();
 
-        if (detections.length > 0) {
-          const expressions = detections[0].expressions;
-          const maxExpression = Object.keys(expressions).reduce((a, b) =>
-            expressions[a] > expressions[b] ? a : b
-          );
-          detectedEmotion = `Phát hiện: ${maxExpression} (${(expressions[maxExpression] * 100).toFixed(2)}%)`;
-          mappedEmotion = maxExpression;
+        if (result.emotion) {
+          detectedEmotion = `Phát hiện: ${result.emotion}`;
+          mappedEmotion = result.emotion;
 
           // So sánh cảm xúc
           const currentEmotionObj = emotions.find(emotion => emotion.name === currentEmotion);
@@ -324,14 +312,15 @@
         }
       } catch (err) {
         console.error('Lỗi phân tích cảm xúc:', err);
+        detectedEmotion = 'Lỗi phân tích cảm xúc';
       }
 
       // Cập nhật thanh trạng thái
       statusText.textContent = `Tình trạng của bạn: ${detectedEmotion}`;
 
-      // Gửi ảnh lên server
+      // Gửi ảnh lên server (endpoint upload cũ)
       const dataUrl = canvas.toDataURL('image/jpeg');
-      fetch('https://checkface-0jlo.onrender.com/upload', {
+      fetch('/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ image: dataUrl, condition: detectedEmotion })
