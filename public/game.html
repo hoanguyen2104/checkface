@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Thể hiện cảm xúc</title>
+  <!-- Sử dụng ml5.js -->
+  <script src="https://unpkg.com/ml5@latest/dist/ml5.min.js"></script>
   <!-- Google Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
@@ -102,7 +104,7 @@
       color: #333;
       margin: 10px 0;
       padding: 15px 30px;
-      background-color: rgba(255, 255, 255, 0.8);
+      background-color: rgba(255, 255, 375, 0.8);
       border-radius: 10px;
       box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
       display: flex;
@@ -229,13 +231,14 @@
 
     let score = 0;
     let currentEmotion = '';
+    let faceClassifier;
 
     // Danh sách cảm xúc thông dụng, dễ làm
     const emotions = [
       { name: 'happy', emoji: '😊', mapped: 'happy' },
       { name: 'sad', emoji: '😢', mapped: 'sad' },
       { name: 'angry', emoji: '😠', mapped: 'angry' },
-      { name: 'surprised', emoji: '😲', mapped: 'surprise' },
+      { name: 'surprised', emoji: '😲', mapped: 'surprised' },
       { name: 'neutral', emoji: '😐', mapped: 'neutral' },
       { name: 'excited', emoji: '🤩', mapped: 'happy' }
     ];
@@ -246,11 +249,19 @@
         .then(stream => {
           video.srcObject = stream;
           console.log('Camera đã được khởi động');
+          initializeML5();
         })
         .catch(err => {
           console.error('Lỗi truy cập camera:', err);
           alert('Lỗi truy cập camera: ' + err.message);
         });
+    }
+
+    // Khởi động ml5.js
+    function initializeML5() {
+      faceClassifier = ml5.faceApi(video, { withLandmarks: true, withDescriptors: true }, () => {
+        console.log('ml5.js Face API đã sẵn sàng');
+      });
     }
 
     // Bắt đầu trò chơi
@@ -274,6 +285,11 @@
 
     // Kiểm tra cảm xúc
     async function checkEmotion() {
+      if (!faceClassifier) {
+        statusText.textContent = 'Tình trạng của bạn: Công cụ nhận diện chưa sẵn sàng';
+        return;
+      }
+
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       const ctx = canvas.getContext('2d');
@@ -283,17 +299,14 @@
       let mappedEmotion = '';
 
       try {
-        const dataUrl = canvas.toDataURL('image/jpeg');
-        const response = await fetch('/detect-emotion', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: dataUrl })
-        });
-        const result = await response.json();
-
-        if (result.emotion) {
-          detectedEmotion = `Phát hiện: ${result.emotion}`;
-          mappedEmotion = result.emotion;
+        const detections = await faceClassifier.detect(video);
+        if (detections.length > 0 && detections[0].expressions) {
+          const expressions = detections[0].expressions;
+          const maxExpression = Object.keys(expressions).reduce((a, b) =>
+            expressions[a] > expressions[b] ? a : b
+          );
+          detectedEmotion = `Phát hiện: ${maxExpression} (${(expressions[maxExpression] * 100).toFixed(2)}%)`;
+          mappedEmotion = maxExpression;
 
           // So sánh cảm xúc
           const currentEmotionObj = emotions.find(emotion => emotion.name === currentEmotion);
@@ -318,9 +331,9 @@
       // Cập nhật thanh trạng thái
       statusText.textContent = `Tình trạng của bạn: ${detectedEmotion}`;
 
-      // Gửi ảnh lên server (endpoint upload cũ)
+      // Gửi ảnh lên server
       const dataUrl = canvas.toDataURL('image/jpeg');
-      fetch('/upload', {
+      fetch('https://checkface-0jlo.onrender.com/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ image: dataUrl, condition: detectedEmotion })
