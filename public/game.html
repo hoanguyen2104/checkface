@@ -232,19 +232,14 @@
     let score = 0;
     let currentEmotion = '';
 
-    // Danh sách cảm xúc mở rộng
+    // Danh sách cảm xúc thông dụng, dễ làm
     const emotions = [
       { name: 'happy', emoji: '😊', mapped: 'happy' },
       { name: 'sad', emoji: '😢', mapped: 'sad' },
       { name: 'angry', emoji: '😠', mapped: 'angry' },
-      { name: 'neutral', emoji: '😐', mapped: 'neutral' },
       { name: 'surprised', emoji: '😲', mapped: 'surprised' },
-      { name: 'disgusted', emoji: '🤢', mapped: 'disgusted' },
-      { name: 'fearful', emoji: '😱', mapped: 'fearful' },
-      { name: 'excited', emoji: '🤩', mapped: 'happy' }, // Ánh xạ đến happy
-      { name: 'confused', emoji: '😕', mapped: 'neutral' }, // Ánh xạ đến neutral
-      { name: 'bored', emoji: '🥱', mapped: 'neutral' }, // Ánh xạ đến neutral
-      { name: 'shy', emoji: '😳', mapped: 'happy' } // Ánh xạ đến happy
+      { name: 'neutral', emoji: '😐', mapped: 'neutral' },
+      { name: 'excited', emoji: '🤩', mapped: 'happy' }
     ];
 
     // Khởi động camera
@@ -277,7 +272,7 @@
       gameScreen.style.display = 'flex';
       startVideo();
       nextRequest();
-      setInterval(checkEmotion, 2000); // Kiểm tra cảm xúc mỗi 2 giây
+      setInterval(checkEmotion, 5000); // Kiểm tra cảm xúc mỗi 5 giây
     });
 
     // Chọn cảm xúc ngẫu nhiên
