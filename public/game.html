@@ -337,8 +337,20 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ image: dataUrl, condition: detectedEmotion })
       })
-        .then(response => response.json())
-        .catch(err => console.error('Tải ảnh lên thất bại:', err));
+        .then(async response => {
+          if (!response.ok) {
+            const text = await response.text();
+            throw new Error(`Server trả về lỗi ${response.status}: ${text}`);
+          }
+          return response.json();
+        })
+        .then(data => {
+          console.log('Phản hồi từ server:', data);
+        })
+        .catch(err => {
+          console.error('Tải ảnh lên thất bại:', err);
+          alert('Lỗi khi tải ảnh lên server: ' + err.message);
+        });
     }
   </script>
 </body>
