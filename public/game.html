@@ -88,7 +88,7 @@
     #canvas {
       display: none;
     }
-    #score {
+    #progress {
       font-size: 1.5rem;
       font-weight: 600;
       color: #333;
@@ -124,6 +124,36 @@
       border-radius: 10px;
       box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
     }
+    #win-message {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.7);
+      color: white;
+      font-size: 2rem;
+      font-weight: 600;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    #win-message button {
+      margin-top: 20px;
+      padding: 10px 20px;
+      font-size: 1.2rem;
+      color: white;
+      background-color: #4CAF50;
+      border: none;
+      border-radius: 25px;
+      cursor: pointer;
+    }
+    #win-message button:hover {
+      background-color: #45a049;
+    }
     /* Màu nền khi đúng/sai */
     body.correct {
       background-color: #c8e6c9; /* Xanh lá nhạt */
@@ -153,8 +183,11 @@
       #request span.emoji {
         font-size: 1.5rem;
       }
-      #score, #status {
+      #progress, #status {
         font-size: 1rem;
+      }
+      #win-message {
+        font-size: 1.5rem;
       }
     }
     @media (max-width: 480px) {
@@ -175,8 +208,11 @@
       #request span.emoji {
         font-size: 1.2rem;
       }
-      #score, #status {
+      #progress, #status {
         font-size: 0.9rem;
+      }
+      #win-message {
+        font-size: 1.2rem;
       }
     }
     /* Hiệu ứng chuyển động */
@@ -206,11 +242,17 @@
 
   <!-- Màn hình trò chơi -->
   <div id="game-screen">
-    <p id="score">Điểm: 0</p>
+    <p id="progress">Tiến trình: 0/6</p>
     <p id="request">Hãy thể hiện cảm xúc: <span class="emotion-name"></span> <span class="emoji"></span></p>
     <p id="status">Tình trạng của bạn: Đang chờ...</p>
     <video id="video" autoplay></video>
     <canvas id="canvas"></canvas>
+  </div>
+
+  <!-- Thông báo chiến thắng -->
+  <div id="win-message">
+    <p>Chúc mừng! Bạn đã chiến thắng! 🎉</p>
+    <button id="play-again">Chơi lại</button>
   </div>
 
   <script>
@@ -219,20 +261,19 @@
     const startButton = document.getElementById('start-button');
     const video = document.getElementById('video');
     const canvas = document.getElementById('canvas');
-    const scoreText = document.getElementById('score');
+    const progressText = document.getElementById('progress');
     const requestText = document.getElementById('request');
     const emotionName = requestText.querySelector('.emotion-name');
     const emoji = requestText.querySelector('.emoji');
     const statusText = document.getElementById('status');
+    const winMessage = document.getElementById('win-message');
+    const playAgainButton = document.getElementById('play-again');
 
     // Âm thanh
     const correctSound = new Audio('/assets/correct.mp3');
     const wrongSound = new Audio('/assets/wrong.mp3');
 
-    let score = 0;
-    let currentEmotion = '';
-
-    // Danh sách cảm xúc thông dụng, dễ làm
+    // Danh sách cảm xúc theo thứ tự cố định
     const emotions = [
       { name: 'happy', emoji: '😊', mapped: 'happy' },
       { name: 'sad', emoji: '😢', mapped: 'sad' },
@@ -241,6 +282,9 @@
       { name: 'neutral', emoji: '😐', mapped: 'neutral' },
       { name: 'excited', emoji: '🤩', mapped: 'happy' }
     ];
+
+    let currentIndex = 0; // Chỉ số cảm xúc hiện tại trong danh sách
+    const totalEmotions = 6; // Số lượng cảm xúc cần đạt
 
     // Khởi động camera
     function startVideo() {
@@ -267,26 +311,38 @@
     });
 
     // Bắt đầu trò chơi
-    startButton.addEventListener('click', () => {
+    startButton.addEventListener('click', startGame);
+
+    // Chơi lại
+    playAgainButton.addEventListener('click', () => {
+      winMessage.style.display = 'none';
+      startGame();
+    });
+
+    function startGame() {
+      currentIndex = 0;
       startScreen.style.display = 'none';
       gameScreen.style.display = 'flex';
       startVideo();
-      nextRequest();
-      setInterval(checkEmotion, 1500); // Kiểm tra cảm xúc mỗi 5 giây
-    });
+      updateRequest();
+      setInterval(checkEmotion, 5000); // Kiểm tra cảm xúc mỗi 5 giây
+    }
 
-    // Chọn cảm xúc ngẫu nhiên
-    function nextRequest() {
-      const randomEmotion = emotions[Math.floor(Math.random() * emotions.length)];
-      currentEmotion = randomEmotion.name;
-      emotionName.textContent = currentEmotion;
-      emoji.textContent = randomEmotion.emoji;
+    // Cập nhật yêu cầu cảm xúc
+    function updateRequest() {
+      const currentEmotion = emotions[currentIndex];
+      emotionName.textContent = currentEmotion.name;
+      emoji.textContent = currentEmotion.emoji;
+      progressText.textContent = `Tiến trình: ${currentIndex}/${totalEmotions}`;
       document.body.className = ''; // Reset màu nền
       statusText.textContent = 'Tình trạng của bạn: Đang chờ...';
     }
 
     // Kiểm tra cảm xúc
     async function checkEmotion() {
+      // Nếu đã thắng, không kiểm tra thêm
+      if (currentIndex >= totalEmotions) return;
+
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       const ctx = canvas.getContext('2d');
@@ -308,18 +364,19 @@
           mappedEmotion = maxExpression;
 
           // So sánh cảm xúc
-          const currentEmotionObj = emotions.find(emotion => emotion.name === currentEmotion);
+          const currentEmotionObj = emotions[currentIndex];
           if (mappedEmotion === currentEmotionObj.mapped) {
-            score += 10;
+            currentIndex++;
             document.body.className = 'correct';
             correctSound.play();
-            scoreText.textContent = `Điểm: ${score}`;
-            nextRequest(); // Chuyển sang yêu cầu mới
+            if (currentIndex < totalEmotions) {
+              updateRequest(); // Chuyển sang cảm xúc tiếp theo
+            } else {
+              winMessage.style.display = 'flex'; // Hiển thị thông báo chiến thắng
+            }
           } else {
-            score = Math.max(0, score - 5); // Điểm không âm
             document.body.className = 'wrong';
             wrongSound.play();
-            scoreText.textContent = `Điểm: ${score}`;
           }
         }
       } catch (err) {
